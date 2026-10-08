@@ -1,12 +1,45 @@
-# Hyperion app
+# Traiecta App
+
+[![CI](https://github.com/Traiecta-Labs/traiecta-app/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Traiecta-Labs/traiecta-app/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Stellar](https://img.shields.io/badge/Stellar-Soroban-%237b2ff7?logo=stellar)](https://developers.stellar.org)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-%233178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 The front end for a router that moves money between Stellar and the EVM chains.
 
-The product's claim is narrow and specific: Hyperion never decides for itself that a cross-chain
+The product's claim is narrow and specific: Traiecta never decides for itself that a cross-chain
 message is real. It prices four rails that already made that decision and were audited for it,
 takes the one that lands the most money, and tells you what the other three would have cost. The
 whole design of this app exists to make that claim checkable rather than just stated, which is why
 the centrepiece is a diagram of four rails with the losers still drawn and their reasons attached.
+
+## How it uses Stellar
+
+The app is the Stellar-facing half of the interface, and it treats the two chains as genuinely different rather than symmetric:
+
+- **Stellar Wallets Kit** connects Soroban accounts (Freighter, xBull, Albedo) alongside Wagmi/Viem for the EVM leg.
+- **Route planner** prices all four rails locally from the deployed router parameters and quotes, then draws the winning route.
+- **Switchyard** is a live SVG interchange: the winning track draws copper to blue where custody stops being yours.
+- **Transfer tracker** follows a transfer across both chains, from origin burn or dispatch to destination execution, and surfaces parked destination claims for permissionless recovery.
+- **Testnet router wiring** points at the deployed Stellar router contract id, so quotes are priced against a real on-chain configuration.
+
+## Table of Contents
+
+- [How it uses Stellar](#how-it-uses-stellar)
+- [The design is a set of decisions, not a theme](#the-design-is-a-set-of-decisions-not-a-theme)
+- [Three checks that run before lint](#three-checks-that-run-before-lint)
+- [The mark](#the-mark)
+- [Accessibility](#accessibility)
+- [Prerequisites](#prerequisites)
+- [Running it](#running-it)
+- [Implemented capabilities](#implemented-capabilities)
+  - [Live deployment](#live-deployment)
+  - [Organization links](#organization-links)
+- [Environment Variables Reference](#environment-variables-reference)
+- [Security Notes](#security-notes)
+- [License](#license)
 
 ## The design is a set of decisions, not a theme
 
@@ -103,6 +136,20 @@ always the better artifact at that size.
 Everything interactive has a visible focus state in copper, verified against every surface it can
 sit on. Reduced motion is honoured by collapsing durations to zero rather than by shortening them.
 
+## Prerequisites
+
+| Tool | Version / Notes | Install |
+| --- | --- | --- |
+| **Node.js** | 20 or newer, with npm | https://nodejs.org |
+| **Traiecta contracts repo** | checked out as a sibling, for the shared `@traiecta/protocol` SDK | [traiecta-contracts](https://github.com/Traiecta-Labs/traiecta-contracts) |
+| **Browser wallet** | Freighter or another Stellar Wallets Kit wallet for the Stellar leg; an EVM wallet for the EVM leg | https://freighter.app |
+
+Verify your setup:
+
+```bash
+node --version
+```
+
 ## Running it
 
 ```bash
@@ -115,11 +162,23 @@ npm run check      # format, house rules, contrast, lint, typecheck, production 
 ```
 
 One trap worth knowing, and it is written at length in `next.config.ts`. Turbopack will not follow
-a symlink out of its root. `@hyperion/protocol` is a `file:` dependency on a sibling repository, so
+a symlink out of its root. `@traiecta/protocol` is a `file:` dependency on a sibling repository, so
 npm installs it as a symlink resolving outside this directory, and pinning `turbopack.root` to this
 package makes the shared SDK unresolvable with a bare "module not found" that says nothing about
 symlinks. The root is the directory holding both repositories, which is what a workspace root
 means.
+
+## Environment Variables Reference
+
+Copy `.env.example` to `.env.local` and fill it in. The app reads only `NEXT_PUBLIC_*` values, all of which end up in the browser bundle, so nothing here may be a secret.
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `NEXT_PUBLIC_TRAIECTA_NETWORK` | yes | `testnet` or `mainnet`; which side of the fence to talk to |
+| `NEXT_PUBLIC_TRAIECTA_INDEXER_URL` | no | URL of the status indexer (the app does not call it yet) |
+| `NEXT_PUBLIC_STELLAR_RPC_URL` | no | Override the default Stellar RPC endpoint from `@traiecta/protocol` |
+| `NEXT_PUBLIC_EVM_RPC_URL` | no | Override the default EVM RPC endpoint from `@traiecta/protocol` |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | no | WalletConnect project id for the EVM leg (public by design) |
 
 ## Implemented capabilities
 
@@ -142,10 +201,18 @@ The frontend application is deployed and live on Vercel:
 
 ### Organization links
 
-This web client surfaces on-chain contracts and off-chain indexing services across the StellarHyperion organization:
+This web client surfaces on-chain contracts and off-chain indexing services across the Traiecta-Labs organization:
 
-- Contracts: [stellarhyperion-contracts](https://github.com/StellarHyperion/stellarhyperion-contracts)
-- Backend: [stellarhyperion-backend](https://github.com/StellarHyperion/stellarhyperion-backend)
+- Contracts: [traiecta-contracts](https://github.com/Traiecta-Labs/traiecta-contracts)
+- Backend: [traiecta-api](https://github.com/Traiecta-Labs/traiecta-api)
+
+## Security Notes
+
+- **No secrets in the bundle.** The app reads only `NEXT_PUBLIC_*` values, and all of them ship to the browser. Anything sensitive belongs in the backend, not here.
+- **Keys never leave the wallet.** Stellar Wallets Kit and the EVM wallet hold private keys; the app only ever asks for signatures.
+- **The app never attests a message.** It prices rails and displays results. It does not decide that a cross-chain message is real; that decision belongs to the rails.
+- **Verify on chain.** Treat the UI, the indexer, and explorer links as convenience views and confirm a transfer against the emitted events.
+- **WalletConnect project id is public by design** and rate limited per project.
 
 ## License
 
